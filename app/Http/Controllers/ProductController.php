@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Requests\UpdateProductRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
@@ -15,17 +18,8 @@ class ProductController extends Controller
         return response()->json($products);
     }
 
-    public function store(Request $request)
+    public function store(StoreProductRequest $request)
     {
-        $request->validate([
-            'name'        => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'price'       => 'required|numeric|min:0',
-            'stock'       => 'required|integer|min:0',
-            'category_id' => 'required|exists:categories,id',
-            'image'       => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
-        ]);
-
         $imagePath = null;
         if ($request->hasFile('image')) {
             $imagePath = $request->file('image')->store('products', 'public');
@@ -41,6 +35,13 @@ class ProductController extends Controller
             'image'       => $imagePath,
         ]);
 
+        Log::info('Produto criado', [
+            'product_id' => $product->id,
+            'name' => $product->name,
+            'user_id' => $request->user()->id,
+            'ip' => $request->ip(),
+        ]);
+
         return response()->json($product->load(['category', 'images']), 201);
     }
 
@@ -49,17 +50,8 @@ class ProductController extends Controller
         return response()->json($product->load(['category', 'images']));
     }
 
-    public function update(Request $request, Product $product)
+    public function update(UpdateProductRequest $request, Product $product)
     {
-        $request->validate([
-            'name'        => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'price'       => 'required|numeric|min:0',
-            'stock'       => 'required|integer|min:0',
-            'category_id' => 'required|exists:categories,id',
-            'image'       => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
-        ]);
-
         $data = [
             'name'        => $request->name,
             'slug'        => Str::slug($request->name),
@@ -78,15 +70,32 @@ class ProductController extends Controller
 
         $product->update($data);
 
+        Log::info('Produto atualizado', [
+            'product_id' => $product->id,
+            'name' => $product->name,
+            'user_id' => $request->user()->id,
+            'ip' => $request->ip(),
+        ]);
+
         return response()->json($product->load(['category', 'images']));
     }
 
-    public function destroy(Product $product)
+    public function destroy(Request $request, Product $product)
     {
+        $productData = ['id' => $product->id, 'name' => $product->name];
+
         if ($product->image) {
             Storage::disk('public')->delete($product->image);
         }
         $product->delete();
+
+        Log::warning('Produto excluído', [
+            'product_id' => $productData['id'],
+            'name' => $productData['name'],
+            'user_id' => $request->user()->id,
+            'ip' => $request->ip(),
+        ]);
+
         return response()->json(['message' => 'Produto excluído com sucesso.']);
     }
 }

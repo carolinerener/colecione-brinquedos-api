@@ -3,59 +3,74 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Http\Requests\StoreCategoryRequest;
+use App\Http\Requests\UpdateCategoryRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 class CategoryController extends Controller
 {
-    // Listar todas as categorias
     public function index()
     {
         $categories = Category::with('children')->whereNull('parent_id')->get();
         return response()->json($categories);
     }
 
-  // Criar nova categoria
-public function store(Request $request)
-{
-    $request->validate([
-        'name' => 'required|string|max:255',
-        'parent_id' => 'nullable|exists:categories,id',
-    ]);
+    public function store(StoreCategoryRequest $request)
+    {
+        $category = Category::create([
+            'name' => $request->name,
+            'slug' => Str::slug($request->name),
+            'parent_id' => $request->parent_id,
+        ]);
 
-    $category = Category::create([
-        'name' => $request->name,
-        'slug' => \Illuminate\Support\Str::slug($request->name),
-        'parent_id' => $request->parent_id,
-    ]);
+        Log::info('Categoria criada', [
+            'category_id' => $category->id,
+            'name' => $category->name,
+            'user_id' => $request->user()->id,
+            'ip' => $request->ip(),
+        ]);
 
-    return response()->json($category, 201);
-}
+        return response()->json($category, 201);
+    }
 
-    // Exibir uma categoria
     public function show(Category $category)
     {
         return response()->json($category->load('children'));
     }
 
-    // Atualizar categoria
-    public function update(Request $request, Category $category)
+    public function update(UpdateCategoryRequest $request, Category $category)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'parent_id' => 'nullable|exists:categories,id',
+        $category->update([
+            'name' => $request->name,
+            'slug' => Str::slug($request->name),
+            'parent_id' => $request->parent_id,
         ]);
 
-        $category->update([
-        'name' => $request->name,
-        'slug' => \Illuminate\Support\Str::slug($request->name),
-        'parent_id' => $request->parent_id,
-]);
+        Log::info('Categoria atualizada', [
+            'category_id' => $category->id,
+            'name' => $category->name,
+            'user_id' => $request->user()->id,
+            'ip' => $request->ip(),
+        ]);
+
+        return response()->json($category);
     }
 
-    // Deletar categoria
-    public function destroy(Category $category)
+    public function destroy(Request $request, Category $category)
     {
+        $categoryData = ['id' => $category->id, 'name' => $category->name];
+
         $category->delete();
+
+        Log::warning('Categoria excluída', [
+            'category_id' => $categoryData['id'],
+            'name' => $categoryData['name'],
+            'user_id' => $request->user()->id,
+            'ip' => $request->ip(),
+        ]);
+
         return response()->json(['message' => 'Categoria excluída com sucesso.']);
     }
 }

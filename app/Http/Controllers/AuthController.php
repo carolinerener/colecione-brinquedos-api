@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -25,6 +26,12 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
+        Log::info('Novo cadastro', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'ip' => $request->ip(),
+        ]);
+
         return response()->json([
             'user' => $user,
             'token' => $token,
@@ -41,12 +48,24 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
+            Log::warning('Tentativa de login falhou', [
+                'email' => $request->email,
+                'ip' => $request->ip(),
+            ]);
+
             throw ValidationException::withMessages([
                 'email' => ['Credenciais inválidas.'],
             ]);
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        Log::info('Login realizado', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'role' => $user->role,
+            'ip' => $request->ip(),
+        ]);
 
         return response()->json([
             'user' => $user,
@@ -56,7 +75,15 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+
+        Log::info('Logout realizado', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'ip' => $request->ip(),
+        ]);
+
+        $user->currentAccessToken()->delete();
 
         return response()->json(['message' => 'Logout realizado com sucesso.']);
     }
