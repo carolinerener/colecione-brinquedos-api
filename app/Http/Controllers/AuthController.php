@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -91,5 +93,81 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         return response()->json($request->user());
+    }
+
+    /**
+     * Exclusão de conta com anonimização (LGPD - Art. 18, VI).
+     *
+     * Conforme Art. 16, I da LGPD, dados podem ser mantidos quando há obrigação
+     * legal — no caso, pedidos/notas fiscais por 5 anos. Por isso anonimizamos
+     * o usuário em vez de apagar fisicamente: nome, email, senha e endereços
+     * cadastrados são substituídos por valores genéricos, mas o ID do usuário
+     * é preservado para manter integridade referencial com a tabela orders.
+     */
+    public function destroy(Request $request)
+    {
+        $request->validate([
+            'password' => 'required|string',
+            'confirmacao' => 'required|in:EXCLUIR MINHA CONTA',
+        ], [
+            'password.required' => 'Confirme sua senha para excluir a conta.',
+            'confirmacao.required' => 'Digite a confirmação para prosseguir.',
+            'confirmacao.in' => 'Texto de confirmação incorreto.',
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($request->password, $user->password)) {
+            Log::warning('Tentativa de exclusão de conta com senha incorreta', [
+                'user_id' => $user->id,
+                'ip' => $request->ip(),
+            ]);
+
+            throw ValidationException::withMessages([
+                'password' => ['Senha incorreta.'],
+            ]);
+        }
+
+        $userIdOriginal = $user->id;
+        $emailOriginal = $user->email;
+
+        DB::transaction(function () use ($user) {
+            // Anonimiza endereços cadastrados (separados dos endereços de pedidos)
+            $user->addresses()->update([
+                'street' => 'Removido',
+                'number' => '0',
+                'complement' => null,
+                'neighborhood' => 'Removido',
+                'city' => 'Removido',
+                'state' => 'XX',
+                'zipcode' => '00000000',
+            ]);
+
+            // Anonimiza dados pessoais do usuário
+            $sufixoUnico = $user->id . '_' . time();
+
+            $user->update([
+                'name' => 'Usuário Removido',
+                'email' => "removido_{$sufixoUnico}@anonimo.local",
+                'password' => Hash::make(Str::random(60)),
+            ]);
+
+            // Revoga todos os tokens (logout em todos os dispositivos)
+            $user->tokens()->delete();
+
+            // Soft delete (preenche deleted_at, mantém ID para integridade fiscal)
+            $user->delete();
+        });
+
+        Log::info('Conta excluída pelo usuário (LGPD)', [
+            'user_id_original' => $userIdOriginal,
+            'email_original' => $emailOriginal,
+            'ip' => $request->ip(),
+            'data_exclusao' => now()->toIso8601String(),
+        ]);
+
+        return response()->json([
+            'message' => 'Conta excluída com sucesso.',
+        ]);
     }
 }
