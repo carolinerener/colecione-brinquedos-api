@@ -170,4 +170,74 @@ class AuthController extends Controller
             'message' => 'Conta excluída com sucesso.',
         ]);
     }
+
+    /**
+     * Exportação de dados pessoais (LGPD - Art. 18, V - Portabilidade).
+     *
+     * Retorna todos os dados pessoais do usuário autenticado em formato JSON
+     * estruturado, permitindo que o titular tenha cópia completa das informações
+     * que tratamos sobre ele e possa, se desejar, levá-las a outro fornecedor.
+     */
+    public function exportarDados(Request $request)
+    {
+        $user = $request->user();
+
+        // Carrega relacionamentos para exportação completa
+        $user->load(['addresses', 'orders.items.product']);
+
+        $dadosExportados = [
+            'metadata' => [
+                'gerado_em' => now()->toIso8601String(),
+                'titular_id' => $user->id,
+                'lei_aplicavel' => 'Lei Geral de Proteção de Dados (Lei nº 13.709/2018) - Art. 18, V',
+                'finalidade' => 'Direito à portabilidade de dados pessoais',
+            ],
+            'dados_pessoais' => [
+                'nome' => $user->name,
+                'email' => $user->email,
+                'tipo_de_conta' => $user->role,
+                'data_cadastro' => $user->created_at?->toIso8601String(),
+                'ultima_atualizacao' => $user->updated_at?->toIso8601String(),
+            ],
+            'enderecos' => $user->addresses->map(function ($address) {
+                return [
+                    'rua' => $address->street,
+                    'numero' => $address->number,
+                    'complemento' => $address->complement,
+                    'bairro' => $address->neighborhood,
+                    'cidade' => $address->city,
+                    'estado' => $address->state,
+                    'cep' => $address->zipcode,
+                    'cadastrado_em' => $address->created_at?->toIso8601String(),
+                ];
+            }),
+            'historico_pedidos' => $user->orders->map(function ($order) {
+                return [
+                    'pedido_id' => $order->id,
+                    'status' => $order->status,
+                    'total' => (float) $order->total,
+                    'data_pedido' => $order->created_at?->toIso8601String(),
+                    'itens' => $order->items->map(function ($item) {
+                        return [
+                            'produto' => $item->product->name ?? 'Produto removido',
+                            'quantidade' => $item->quantity,
+                            'preco_unitario' => (float) $item->price,
+                            'subtotal' => (float) ($item->price * $item->quantity),
+                        ];
+                    }),
+                ];
+            }),
+        ];
+
+        Log::info('Exportação de dados pessoais solicitada (LGPD)', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'ip' => $request->ip(),
+        ]);
+
+        $nomeArquivo = 'meus-dados-' . $user->id . '-' . now()->format('Y-m-d') . '.json';
+
+        return response()->json($dadosExportados)
+            ->header('Content-Disposition', 'attachment; filename="' . $nomeArquivo . '"');
+    }
 }
