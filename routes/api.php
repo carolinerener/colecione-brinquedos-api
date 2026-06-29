@@ -23,6 +23,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::delete('/me', [AuthController::class, 'destroy']);
+    Route::get('/me/exportar', [AuthController::class, 'exportarDados']);
 
     Route::apiResource('orders', OrderController::class)->only(['index', 'store', 'show']);
     Route::apiResource('addresses', AddressController::class)->only(['index', 'store', 'destroy']);
