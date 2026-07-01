@@ -12,9 +12,10 @@ use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $products = Product::with(['category', 'images'])->get();
+        $perPage = $request->input('per_page', 12);
+        $products = Product::with(['category', 'images'])->paginate($perPage);
         return response()->json($products);
     }
 
