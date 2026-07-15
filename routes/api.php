@@ -8,6 +8,7 @@ use App\Http\Controllers\AddressController;
 use App\Http\Controllers\CouponController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PaymentController;
 
 // Rotas públicas
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
@@ -23,6 +24,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::delete('/me', [AuthController::class, 'destroy']);
     Route::get('/me/exportar', [AuthController::class, 'exportarDados']);
+    
 
     Route::apiResource('orders', OrderController::class)->only(['index', 'store', 'show']);
     Route::apiResource('addresses', AddressController::class)->only(['index', 'store', 'destroy']);
@@ -30,6 +32,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Validação de cupom (cliente no checkout) — throttle contra brute force
     Route::post('/coupons/validate', [CouponController::class, 'validateCoupon'])
         ->middleware('throttle:10,1');
+        
+    Route::post('/payments/preference', [PaymentController::class, 'criarPreference']);
 
     // Rotas restritas a administradores
     Route::middleware('admin')->group(function () {
