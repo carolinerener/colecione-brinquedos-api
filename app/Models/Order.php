@@ -13,8 +13,14 @@ class Order extends Model
         'total',
         'status',
         'payment_method',
+        'payment_id',
+        'payment_type',
+        'paid_at',
     ];
-
+     
+    protected $casts = [
+    'paid_at' => 'datetime',
+    ];
     public function user()
     {
         return $this->belongsTo(User::class);

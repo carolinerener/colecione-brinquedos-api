@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Exception;
 use Illuminate\Support\Facades\Log;
+use MercadoPago\Client\Payment\PaymentClient;
 use MercadoPago\Client\Preference\PreferenceClient;
 use MercadoPago\Exceptions\MPApiException;
 use MercadoPago\MercadoPagoConfig;
@@ -40,7 +41,6 @@ class MercadoPagoService
                     'failure' => config('app.frontend_url') . '/checkout/falha',
                     'pending' => config('app.frontend_url') . '/checkout/pendente',
                 ],
-                'auto_return' => 'approved',
                 'statement_descriptor' => 'COLECIONEBRINQUEDOS',
             ]);
 
@@ -62,6 +62,44 @@ class MercadoPagoService
                 'message' => $e->getMessage(),
             ]);
             throw new Exception('Erro ao criar preferência de pagamento.');
+        }
+    }
+
+    /**
+     * Busca detalhes de um pagamento no MercadoPago pelo ID.
+     * Usado no webhook pra confirmar o status real (nunca confia na notificação sozinha).
+     *
+     * @param string $paymentId ID do pagamento no MercadoPago
+     * @return array|null Retorna array com dados do pagamento, ou null se não encontrado
+     */
+    public function buscarPagamento(string $paymentId): ?array
+    {
+        try {
+            $client = new PaymentClient();
+            $payment = $client->get($paymentId);
+
+            return [
+                'id' => $payment->id,
+                'status' => $payment->status,
+                'status_detail' => $payment->status_detail,
+                'payment_type_id' => $payment->payment_type_id,
+                'external_reference' => $payment->external_reference,
+                'transaction_amount' => $payment->transaction_amount,
+                'date_approved' => $payment->date_approved,
+            ];
+        } catch (MPApiException $e) {
+            Log::warning('Erro ao buscar pagamento no MercadoPago', [
+                'payment_id' => $paymentId,
+                'status' => $e->getApiResponse()->getStatusCode(),
+                'response' => $e->getApiResponse()->getContent(),
+            ]);
+            return null;
+        } catch (Exception $e) {
+            Log::error('Erro inesperado ao buscar pagamento', [
+                'payment_id' => $paymentId,
+                'message' => $e->getMessage(),
+            ]);
+            return null;
         }
     }
 }
