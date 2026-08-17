@@ -36,6 +36,7 @@ class MercadoPagoService
                     'email' => $payerEmail,
                 ],
                 'external_reference' => (string) $orderId,
+                'notification_url' => config('services.mercadopago.webhook_url'),
                 'back_urls' => [
                     'success' => config('app.frontend_url') . '/checkout/sucesso',
                     'failure' => config('app.frontend_url') . '/checkout/falha',
