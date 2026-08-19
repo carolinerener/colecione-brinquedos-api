@@ -8,7 +8,7 @@ API REST de um e-commerce de brinquedos educativos infantis, desenvolvida como p
 
 ## 🚀 Tecnologias
 
-- Laravel 13 (PHP)
+- Laravel 12 (PHP 8.3)
 - MySQL
 - Laravel Sanctum
 
@@ -18,9 +18,12 @@ API REST de um e-commerce de brinquedos educativos infantis, desenvolvida como p
 
 - Autenticação com token (register, login, logout)
 - CRUD de categorias e subcategorias
-- CRUD de produtos com slug automático
+- CRUD de produtos com slug automático e paginação
 - Gerenciamento de endereços por usuário
 - Criação e listagem de pedidos
+- Cupons de desconto com validação
+- Integração de pagamento com o Mercado Pago (Checkout Pro) e confirmação de pedidos via webhook
+- Conformidade com a LGPD (exportação e exclusão de dados do usuário)
 - Rotas públicas e protegidas
 
 ---
@@ -37,10 +40,11 @@ php artisan migrate --seed
 php artisan serve
 ```
 
-> Configure o `.env` com seu banco de dados MySQL e defina `DB_DATABASE=colecione_brinquedos`
+> Configure o `.env` com seu banco de dados MySQL e defina `DB_DATABASE=colecione_brinquedos`.
+> Para a integração de pagamento, adicione suas credenciais do Mercado Pago no `.env`.
 
 ---
 
 ## 🔗 Front-end
 
- [colecione-brinquedos-front](https://github.com/carolinerener/colecione-brinquedos-front)
+[colecione-brinquedos-front](https://github.com/carolinerener/colecione-brinquedos-front)
